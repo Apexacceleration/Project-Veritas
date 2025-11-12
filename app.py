@@ -258,13 +258,32 @@ def main():
         st.caption("Made with ❤️ for truth-seekers")
 
     # Main content
-    st.write("### Enter Amazon Product URL")
+    st.write("### Analyze Amazon Reviews")
 
-    url = st.text_input(
-        "Product URL",
-        placeholder="https://amazon.com/dp/B08N5WRWNW",
-        label_visibility="collapsed"
-    )
+    # Tab selection for input method
+    input_tab1, input_tab2 = st.tabs(["🔗 Automatic (URL)", "📝 Manual (Paste Reviews)"])
+
+    with input_tab1:
+        st.write("**Enter Amazon Product URL**")
+        url = st.text_input(
+            "Product URL",
+            placeholder="https://amazon.com/dp/B08N5WRWNW",
+            label_visibility="collapsed",
+            key="url_input"
+        )
+        st.caption("⚡ Uses RapidAPI to fetch reviews automatically")
+
+    with input_tab2:
+        st.write("**Paste Amazon Reviews**")
+        st.caption("Copy reviews from Amazon and paste below (one review per box, or multiple reviews separated by blank lines)")
+
+        manual_reviews_text = st.text_area(
+            "Paste reviews here",
+            placeholder="Paste Amazon reviews here...\n\nYou can paste multiple reviews - separate them with blank lines.",
+            height=300,
+            label_visibility="collapsed",
+            key="manual_reviews"
+        )
 
     col1, col2, col3 = st.columns([1, 1, 3])
 

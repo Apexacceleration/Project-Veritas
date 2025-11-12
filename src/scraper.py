@@ -90,15 +90,11 @@ class AmazonReviewScraper:
         Returns:
             str: Review page URL
         """
-        base_url = f"https://www.amazon.com/product-reviews/{asin}/ref=cm_cr_arp_d_paging_btm_next_{page}"
-        params = {
-            "pageNumber": page,
-            "sortBy": "recent"  # Sort by most recent reviews
-        }
-
-        # Build query string
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-        return f"{base_url}?{query_string}"
+        # Use the customer reviews URL format (more reliable)
+        if page == 1:
+            return f"https://www.amazon.com/product-reviews/{asin}"
+        else:
+            return f"https://www.amazon.com/product-reviews/{asin}?pageNumber={page}"
 
     def _parse_review_element(self, review_element) -> Optional[Dict]:
         """
@@ -295,16 +291,44 @@ class AmazonReviewScraper:
         return self.reviews
 
 
-def scrape_reviews(url: str) -> List[Dict]:
+def scrape_reviews(url: str, use_rapidapi: bool = True) -> List[Dict]:
     """
     Convenience function to scrape reviews from an Amazon product URL.
 
+    Tries RapidAPI first (if enabled), falls back to direct scraping.
+
     Args:
         url (str): Amazon product URL
+        use_rapidapi (bool): Whether to try RapidAPI first (default: True)
 
     Returns:
         List[Dict]: List of review dictionaries
     """
+    # Try RapidAPI first if enabled
+    if use_rapidapi:
+        try:
+            from src.rapidapi_scraper import scrape_reviews_rapidapi
+
+            print("🚀 Attempting to fetch reviews via RapidAPI...")
+            result = scrape_reviews_rapidapi(url)
+
+            if result["success"]:
+                print(f"✅ Successfully fetched {len(result['reviews'])} reviews via RapidAPI")
+                return result["reviews"]
+            elif result["rate_limited"]:
+                print("⚠️ RapidAPI free tier exhausted - falling back to manual input")
+                # Return empty list with special marker
+                return []
+            else:
+                print(f"⚠️ RapidAPI failed: {result['error']}")
+                print("📝 Falling back to direct scraping...")
+        except ImportError:
+            print("⚠️ RapidAPI module not available, using direct scraping")
+        except Exception as e:
+            print(f"⚠️ RapidAPI error: {e}, falling back to direct scraping")
+
+    # Fallback to direct scraping (will likely fail due to Amazon blocks)
+    print("🔍 Attempting direct Amazon scraping...")
     scraper = AmazonReviewScraper()
     return scraper.scrape_reviews(url)
 
