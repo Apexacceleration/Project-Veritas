@@ -24,18 +24,48 @@ class MultiAPIAmazonScraper:
             # Try to load from Streamlit secrets or environment
             # Format: RAPIDAPI_KEY_1, RAPIDAPI_KEY_2, etc.
             self.api_keys = []
-            for i in range(1, 11):  # Support up to 10 API keys
-                key = os.getenv(f"RAPIDAPI_KEY_{i}", "")
-                if key and key != "your-key-here":
-                    self.api_keys.append(key)
 
-            # Fallback to single key if no numbered keys found
+            # Try Streamlit secrets first (for deployed apps)
+            try:
+                import streamlit as st
+                for i in range(1, 11):  # Support up to 10 API keys
+                    try:
+                        key = st.secrets.get(f"RAPIDAPI_KEY_{i}", "")
+                        if key and key != "your-key-here":
+                            self.api_keys.append(key)
+                    except:
+                        pass
+
+                # Fallback to single key if no numbered keys found
+                if not self.api_keys:
+                    try:
+                        single_key = st.secrets.get("RAPIDAPI_KEY", "")
+                        if single_key and single_key != "your-key-here":
+                            self.api_keys = [single_key]
+                    except:
+                        pass
+            except ImportError:
+                # Not in Streamlit, use environment variables
+                pass
+
+            # If still no keys, try environment variables
             if not self.api_keys:
-                single_key = os.getenv("RAPIDAPI_KEY", "")
-                if single_key and single_key != "your-key-here":
-                    self.api_keys = [single_key]
+                for i in range(1, 11):
+                    key = os.getenv(f"RAPIDAPI_KEY_{i}", "")
+                    if key and key != "your-key-here":
+                        self.api_keys.append(key)
+
+                # Fallback to single key
+                if not self.api_keys:
+                    single_key = os.getenv("RAPIDAPI_KEY", "")
+                    if single_key and single_key != "your-key-here":
+                        self.api_keys = [single_key]
 
         print(f"🔑 Loaded {len(self.api_keys)} RapidAPI key(s)")
+        if self.api_keys:
+            print(f"   First key preview: {self.api_keys[0][:20]}...")
+        else:
+            print("   ⚠️ WARNING: No API keys found!")
 
         # Multiple API service configurations (rotate through these too)
         self.api_services = [
