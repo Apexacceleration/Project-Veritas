@@ -8,12 +8,26 @@ import sys
 import os
 import json
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add src to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.main import run_veritas
 import config
+
+# ----- AUTHENTICATION CONFIGURATION -----
+# Add your family's email addresses here (one per line)
+ALLOWED_EMAILS = os.getenv("ALLOWED_EMAILS", "").split(",")
+# Clean up whitespace and empty strings
+ALLOWED_EMAILS = [email.strip().lower() for email in ALLOWED_EMAILS if email.strip()]
+
+# Google OAuth credentials (you'll get these from Google Cloud Console)
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
 # Page configuration
 st.set_page_config(
@@ -75,10 +89,106 @@ def render_score_box(score: float, grade: str, label: str, summary: str):
     """, unsafe_allow_html=True)
 
 
+def check_authentication():
+    """
+    Checks if user is authenticated via Google OAuth.
+    Returns True if authenticated and email is whitelisted, False otherwise.
+    """
+    # Initialize session state for authentication
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.user_email = None
+
+    # If already authenticated, return True
+    if st.session_state.authenticated:
+        return True
+
+    # Try to import Google OAuth
+    try:
+        from streamlit_google_oauth import google_auth_component
+    except ImportError:
+        st.error("⚠️ Google OAuth library not installed. Run: pip install streamlit-google-oauth")
+        return False
+
+    # Check if OAuth is configured
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        st.error("⚠️ Google OAuth not configured. Please contact the administrator.")
+        st.info("Admin: Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env file")
+        return False
+
+    # Check if email whitelist is configured
+    if not ALLOWED_EMAILS:
+        st.error("⚠️ No users are whitelisted. Please contact the administrator.")
+        st.info("Admin: Add ALLOWED_EMAILS to .env file")
+        return False
+
+    # Show login screen
+    st.markdown('<div class="main-header">🔍 Project Veritas</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.write("### 🔐 Sign In Required")
+    st.write("Please sign in with your Google account to access Project Veritas.")
+
+    # Google OAuth button
+    client_id = GOOGLE_CLIENT_ID
+    authorization_code = google_auth_component(
+        client_id=client_id,
+        redirect_uri="https://projectveritas.app"  # Update this with your actual domain
+    )
+
+    # If we got an authorization code, verify it
+    if authorization_code:
+        # Exchange code for user info
+        try:
+            from google.oauth2 import id_token
+            from google.auth.transport import requests
+
+            # Verify the token
+            idinfo = id_token.verify_oauth2_token(
+                authorization_code,
+                requests.Request(),
+                client_id
+            )
+
+            # Get user email
+            user_email = idinfo.get('email', '').lower()
+
+            # Check if email is in whitelist
+            if user_email in ALLOWED_EMAILS:
+                st.session_state.authenticated = True
+                st.session_state.user_email = user_email
+                st.success(f"✅ Welcome, {user_email}!")
+                st.rerun()
+            else:
+                st.error(f"❌ Access denied. Your email ({user_email}) is not authorized.")
+                st.info("Please contact the administrator to request access.")
+                return False
+
+        except Exception as e:
+            st.error(f"❌ Authentication failed: {str(e)}")
+            return False
+
+    return False
+
+
 def main():
+    # Check authentication first
+    if not check_authentication():
+        return
+
     # Header
     st.markdown('<div class="main-header">🔍 Project Veritas</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
+
+    # Show logged in user
+    if st.session_state.user_email:
+        col1, col2 = st.columns([4, 1])
+        with col2:
+            if st.button("🚪 Sign Out"):
+                st.session_state.authenticated = False
+                st.session_state.user_email = None
+                st.rerun()
 
     # Sidebar
     with st.sidebar:
