@@ -296,7 +296,13 @@ def main():
                 progress_bar.progress(20)
 
                 # Run analysis (DON'T capture output - we want to see scraper logs)
+                st.write("DEBUG: About to call run_veritas...")
+                print("DEBUG: About to call run_veritas...")
+
                 report = run_veritas(url, verbose=True)
+
+                st.write(f"DEBUG: run_veritas returned. Report keys: {list(report.keys())}")
+                print(f"DEBUG: run_veritas returned. Report keys: {list(report.keys())}")
 
                 status_text.text("✅ Analysis complete!")
                 progress_bar.progress(100)
@@ -308,6 +314,8 @@ def main():
                 # Check for errors
                 if "error" in report:
                     st.error(f"❌ Error: {report['error']}")
+                    st.write(f"DEBUG: Full error report: {report}")
+                    print(f"DEBUG: Full error report: {report}")
                     return
 
                 # Display results
