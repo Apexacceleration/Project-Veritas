@@ -343,22 +343,35 @@ class MultiAPIAmazonScraper:
             []
         )
 
+        print(f"   Debug: Found {len(review_list)} reviews in response")
+        if review_list:
+            print(f"   Debug: First review keys: {list(review_list[0].keys())}")
+
         for review_data in review_list:
             try:
+                rating = self._extract_rating(review_data)
+                review_text = review_data.get('body', '') or review_data.get('review_comment', '') or review_data.get('text', '')
+
                 review = {
-                    "rating": self._extract_rating(review_data),
+                    "rating": rating,
                     "title": review_data.get('title', '') or review_data.get('review_title', ''),
-                    "review_text": review_data.get('body', '') or review_data.get('review_comment', '') or review_data.get('text', ''),
+                    "review_text": review_text,
                     "date": self._parse_date(review_data.get('date', '') or review_data.get('review_date', '')),
                     "date_raw": review_data.get('date', '') or review_data.get('review_date', ''),
                     "author": review_data.get('author', {}).get('name', 'Anonymous') if isinstance(review_data.get('author'), dict) else review_data.get('author', 'Anonymous'),
                     "verified_purchase": review_data.get('verified_purchase', False) or review_data.get('is_verified', False),
                     "has_images": bool(review_data.get('images', []) or review_data.get('review_images', [])),
-                    "review_length": len(review_data.get('body', '') or review_data.get('review_comment', '') or review_data.get('text', ''))
+                    "review_length": len(review_text)
                 }
 
+                # Debug why review might be rejected
+                if not review_text:
+                    print(f"   Debug: Review rejected - no text. Keys: {list(review_data.keys())}")
+                if not rating:
+                    print(f"   Debug: Review rejected - no rating. Available: {review_data.get('rating')}, {review_data.get('stars')}, {review_data.get('review_star')}")
+
                 # Only add if we have essential data
-                if review["review_text"] and review["rating"]:
+                if review_text and rating:
                     reviews.append(review)
 
             except Exception as e:
