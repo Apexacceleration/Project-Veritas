@@ -30,6 +30,9 @@ class MultiAPIAmazonScraper:
                 import streamlit as st
                 # Check if secrets are available
                 if hasattr(st, 'secrets'):
+                    print(f"   Debug: st.secrets is available")
+                    print(f"   Debug: Available secret keys: {list(st.secrets.keys())}")
+
                     for i in range(1, 11):  # Support up to 10 API keys
                         try:
                             key_name = f"RAPIDAPI_KEY_{i}"
@@ -37,6 +40,7 @@ class MultiAPIAmazonScraper:
                                 key = st.secrets[key_name]
                                 if key and key != "your-key-here":
                                     self.api_keys.append(key)
+                                    print(f"   Debug: Loaded {key_name}")
                         except Exception as e:
                             print(f"   Debug: Failed to load {key_name}: {e}")
                             pass
@@ -48,12 +52,18 @@ class MultiAPIAmazonScraper:
                                 single_key = st.secrets["RAPIDAPI_KEY"]
                                 if single_key and single_key != "your-key-here":
                                     self.api_keys = [single_key]
+                                    print(f"   Debug: Loaded RAPIDAPI_KEY")
                         except Exception as e:
                             print(f"   Debug: Failed to load RAPIDAPI_KEY: {e}")
                             pass
+                else:
+                    print(f"   Debug: st.secrets not available")
             except ImportError:
                 # Not in Streamlit, use environment variables
+                print(f"   Debug: Streamlit not imported")
                 pass
+            except Exception as e:
+                print(f"   Debug: Error accessing Streamlit secrets: {e}")
 
             # If still no keys, try environment variables
             if not self.api_keys:
