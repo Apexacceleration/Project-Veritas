@@ -28,22 +28,29 @@ class MultiAPIAmazonScraper:
             # Try Streamlit secrets first (for deployed apps)
             try:
                 import streamlit as st
-                for i in range(1, 11):  # Support up to 10 API keys
-                    try:
-                        key = st.secrets.get(f"RAPIDAPI_KEY_{i}", "")
-                        if key and key != "your-key-here":
-                            self.api_keys.append(key)
-                    except:
-                        pass
+                # Check if secrets are available
+                if hasattr(st, 'secrets'):
+                    for i in range(1, 11):  # Support up to 10 API keys
+                        try:
+                            key_name = f"RAPIDAPI_KEY_{i}"
+                            if key_name in st.secrets:
+                                key = st.secrets[key_name]
+                                if key and key != "your-key-here":
+                                    self.api_keys.append(key)
+                        except Exception as e:
+                            print(f"   Debug: Failed to load {key_name}: {e}")
+                            pass
 
-                # Fallback to single key if no numbered keys found
-                if not self.api_keys:
-                    try:
-                        single_key = st.secrets.get("RAPIDAPI_KEY", "")
-                        if single_key and single_key != "your-key-here":
-                            self.api_keys = [single_key]
-                    except:
-                        pass
+                    # Fallback to single key if no numbered keys found
+                    if not self.api_keys:
+                        try:
+                            if "RAPIDAPI_KEY" in st.secrets:
+                                single_key = st.secrets["RAPIDAPI_KEY"]
+                                if single_key and single_key != "your-key-here":
+                                    self.api_keys = [single_key]
+                        except Exception as e:
+                            print(f"   Debug: Failed to load RAPIDAPI_KEY: {e}")
+                            pass
             except ImportError:
                 # Not in Streamlit, use environment variables
                 pass
