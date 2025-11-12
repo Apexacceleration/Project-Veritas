@@ -54,6 +54,14 @@ def run_veritas(url: str, output_file: str = None, verbose: bool = True) -> Dict
         reviews = scrape_reviews(url)
         print(f"DEBUG: scrape_reviews returned {len(reviews) if reviews else 0} reviews")
 
+        if reviews:
+            # Debug: Check dates
+            dates_parsed = sum(1 for r in reviews if r.get('date'))
+            print(f"DEBUG: {dates_parsed}/{len(reviews)} reviews have parsed dates")
+            if dates_parsed > 0:
+                sample_review = next(r for r in reviews if r.get('date'))
+                print(f"DEBUG: Sample date: {sample_review.get('date')} (from raw: {sample_review.get('date_raw')})")
+
         if not reviews:
             error_report = {
                 "project": "Project Veritas",
