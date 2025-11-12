@@ -371,17 +371,25 @@ class MultiAPIAmazonScraper:
                 elif not author:
                     author = review_data.get('author', 'Anonymous')
 
+                # Extract and parse date
+                date_raw = review_data.get('date', '') or review_data.get('review_date', '')
+                parsed_date = self._parse_date(date_raw)
+
                 review = {
                     "rating": rating,
                     "title": review_data.get('title', '') or review_data.get('review_title', ''),
                     "review_text": review_text,
-                    "date": self._parse_date(review_data.get('date', '') or review_data.get('review_date', '')),
-                    "date_raw": review_data.get('date', '') or review_data.get('review_date', ''),
+                    "date": parsed_date,
+                    "date_raw": date_raw,
                     "author": author,
                     "verified_purchase": review_data.get('verified_purchase', False) or review_data.get('is_verified_purchase', False),
                     "has_images": bool(review_data.get('images', []) or review_data.get('review_images', [])),
                     "review_length": len(review_text)
                 }
+
+                # Debug: Show date parsing for first review
+                if len(all_reviews) == 0:
+                    print(f"      Debug: First review date_raw='{date_raw}', parsed={parsed_date}")
 
                 # Debug why review might be rejected
                 if not review_text:
