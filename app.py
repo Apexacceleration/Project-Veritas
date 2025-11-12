@@ -112,13 +112,16 @@ def check_authentication():
         return True
 
     # Check if user is logged in using Streamlit's native authentication
-    # Check if st.user exists (Streamlit 1.42+)
-    if not hasattr(st, 'user'):
-        st.error("⚠️ Streamlit version is too old for native authentication.")
-        st.info("The app requires Streamlit 1.42 or higher. Redeploying...")
-        return True
+    # Check if st.user exists and is properly configured
+    try:
+        is_logged_in = st.user.is_logged_in
+    except (AttributeError, KeyError) as e:
+        st.error("⚠️ Authentication system error.")
+        st.info(f"Debug: {str(e)}")
+        st.info("Check that [auth] section is properly configured in secrets.")
+        return True  # Allow access for now to debug
 
-    if not st.user.is_logged_in:
+    if not is_logged_in:
         # Show login screen
         st.markdown('<div class="main-header">🔍 Project Veritas</div>', unsafe_allow_html=True)
         st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
@@ -161,13 +164,17 @@ def main():
     st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
 
     # Show logged in user
-    if hasattr(st, 'user') and st.user.is_logged_in and st.session_state.get('user_email'):
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            st.caption(f"Signed in as: {st.session_state.user_email}")
-        with col2:
-            if st.button("🚪 Sign Out"):
-                st.logout()
+    try:
+        if st.user.is_logged_in and st.session_state.get('user_email'):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.caption(f"Signed in as: {st.session_state.user_email}")
+            with col2:
+                if st.button("🚪 Sign Out"):
+                    st.logout()
+    except (AttributeError, KeyError):
+        # Authentication not configured, skip user display
+        pass
 
     # Sidebar
     with st.sidebar:
