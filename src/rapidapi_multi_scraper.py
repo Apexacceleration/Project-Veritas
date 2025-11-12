@@ -352,14 +352,21 @@ class MultiAPIAmazonScraper:
                 rating = self._extract_rating(review_data)
                 review_text = review_data.get('body', '') or review_data.get('review_comment', '') or review_data.get('text', '')
 
+                # Extract author name
+                author = review_data.get('review_author', '')
+                if not author and isinstance(review_data.get('author'), dict):
+                    author = review_data.get('author', {}).get('name', 'Anonymous')
+                elif not author:
+                    author = review_data.get('author', 'Anonymous')
+
                 review = {
                     "rating": rating,
                     "title": review_data.get('title', '') or review_data.get('review_title', ''),
                     "review_text": review_text,
                     "date": self._parse_date(review_data.get('date', '') or review_data.get('review_date', '')),
                     "date_raw": review_data.get('date', '') or review_data.get('review_date', ''),
-                    "author": review_data.get('author', {}).get('name', 'Anonymous') if isinstance(review_data.get('author'), dict) else review_data.get('author', 'Anonymous'),
-                    "verified_purchase": review_data.get('verified_purchase', False) or review_data.get('is_verified', False),
+                    "author": author,
+                    "verified_purchase": review_data.get('verified_purchase', False) or review_data.get('is_verified_purchase', False),
                     "has_images": bool(review_data.get('images', []) or review_data.get('review_images', [])),
                     "review_length": len(review_text)
                 }
@@ -410,12 +417,17 @@ class MultiAPIAmazonScraper:
 
     def _extract_rating(self, review_data: Dict) -> Optional[float]:
         """Extract rating from various possible formats."""
-        rating = review_data.get('rating') or review_data.get('stars') or review_data.get('review_star')
+        rating = (
+            review_data.get('review_star_rating') or  # OpenWeb Ninja uses this
+            review_data.get('rating') or
+            review_data.get('stars') or
+            review_data.get('review_star')
+        )
 
         if rating is None:
             return None
 
-        # Handle string ratings
+        # Handle string ratings like "5.0 out of 5 stars"
         if isinstance(rating, str):
             match = re.search(r'(\d+\.?\d*)', rating)
             if match:
