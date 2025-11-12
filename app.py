@@ -314,14 +314,37 @@ def main():
                 status_text.text("📥 Scraping reviews from Amazon...")
                 progress_bar.progress(20)
 
-                # Run analysis (DON'T capture output - we want to see scraper logs)
+                # Run analysis with explicit logging
                 st.write("DEBUG: About to call run_veritas...")
-                print("DEBUG: About to call run_veritas...")
+                st.write(f"DEBUG: URL = {url}")
+
+                # Import and test scraper directly with output capture
+                from src.scraper import scrape_reviews
+                import io
+                import sys
+
+                st.write("DEBUG: Testing scraper directly...")
+
+                # Capture print output
+                old_stdout = sys.stdout
+                sys.stdout = captured_output = io.StringIO()
+
+                try:
+                    test_reviews = scrape_reviews(url)
+                finally:
+                    sys.stdout = old_stdout
+
+                # Show captured output
+                output = captured_output.getvalue()
+                if output:
+                    st.code(output, language="text")
+
+                st.write(f"DEBUG: Direct scraper returned {len(test_reviews) if test_reviews else 0} reviews")
 
                 report = run_veritas(url, verbose=True)
 
                 st.write(f"DEBUG: run_veritas returned. Report keys: {list(report.keys())}")
-                print(f"DEBUG: run_veritas returned. Report keys: {list(report.keys())}")
+                st.write(f"DEBUG: Reviews analyzed: {report.get('total_reviews_analyzed', 0)}")
 
                 status_text.text("✅ Analysis complete!")
                 progress_bar.progress(100)

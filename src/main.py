@@ -50,7 +50,9 @@ def run_veritas(url: str, output_file: str = None, verbose: bool = True) -> Dict
             print("📥 STEP 1: SCRAPING REVIEWS")
             print("-"*60)
 
+        print(f"DEBUG: About to call scrape_reviews with URL: {url}")
         reviews = scrape_reviews(url)
+        print(f"DEBUG: scrape_reviews returned {len(reviews) if reviews else 0} reviews")
 
         if not reviews:
             error_report = {
