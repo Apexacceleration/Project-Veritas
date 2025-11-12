@@ -295,15 +295,8 @@ def main():
                 status_text.text("📥 Scraping reviews from Amazon...")
                 progress_bar.progress(20)
 
-                # Run analysis (capture verbose output)
-                import io
-                from contextlib import redirect_stdout
-
-                # Redirect prints to capture progress
-                output_buffer = io.StringIO()
-
-                with redirect_stdout(output_buffer):
-                    report = run_veritas(url, verbose=True)
+                # Run analysis (DON'T capture output - we want to see scraper logs)
+                report = run_veritas(url, verbose=True)
 
                 status_text.text("✅ Analysis complete!")
                 progress_bar.progress(100)
