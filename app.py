@@ -94,82 +94,88 @@ def check_authentication():
     Checks if user is authenticated via Google OAuth.
     Returns True if authenticated and email is whitelisted, False otherwise.
     """
-    # Initialize session state for authentication
-    if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
-        st.session_state.user_email = None
-
-    # If already authenticated, return True
-    if st.session_state.authenticated:
-        return True
-
-    # Try to import Google OAuth
-    try:
-        from streamlit_google_oauth import google_auth_component
-    except ImportError:
-        st.error("⚠️ Google OAuth library not installed. Run: pip install streamlit-google-oauth")
-        return False
+    # Check if email whitelist is configured
+    if not ALLOWED_EMAILS:
+        st.warning("⚠️ Authentication is disabled. No users are whitelisted.")
+        st.info("Admin: Add ALLOWED_EMAILS to environment variables to enable authentication.")
+        return True  # Allow access if no whitelist configured (for initial setup)
 
     # Check if OAuth is configured
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        st.error("⚠️ Google OAuth not configured. Please contact the administrator.")
-        st.info("Admin: Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env file")
-        return False
+        st.warning("⚠️ Authentication is disabled. Google OAuth not configured.")
+        st.info("Admin: Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable authentication.")
+        return True  # Allow access if OAuth not configured (for initial setup)
 
-    # Check if email whitelist is configured
-    if not ALLOWED_EMAILS:
-        st.error("⚠️ No users are whitelisted. Please contact the administrator.")
-        st.info("Admin: Add ALLOWED_EMAILS to .env file")
-        return False
+    # Try to import and set up authenticator
+    try:
+        from streamlit_google_auth import Authenticate
+        import json
+        import tempfile
 
-    # Show login screen
-    st.markdown('<div class="main-header">🔍 Project Veritas</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
+        # Create credentials dict from environment variables
+        credentials = {
+            "web": {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uris": ["https://projectveritas.app", "https://project-veritas.streamlit.app"],
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://accounts.google.com/o/oauth2/token"
+            }
+        }
 
-    st.markdown("---")
-    st.write("### 🔐 Sign In Required")
-    st.write("Please sign in with your Google account to access Project Veritas.")
+        # Write credentials to temporary file (streamlit-google-auth requires a file)
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(credentials, f)
+            creds_file = f.name
 
-    # Google OAuth button
-    client_id = GOOGLE_CLIENT_ID
-    authorization_code = google_auth_component(
-        client_id=client_id,
-        redirect_uri="https://projectveritas.app"  # Update this with your actual domain
-    )
+        # Initialize authenticator
+        authenticator = Authenticate(
+            secret_credentials_path=creds_file,
+            cookie_name='veritas_auth',
+            cookie_key=os.getenv('COOKIE_SECRET', 'veritas-secret-key-change-in-production'),
+            redirect_uri=st.secrets.get("redirect_uri", "https://project-veritas.streamlit.app")
+        )
 
-    # If we got an authorization code, verify it
-    if authorization_code:
-        # Exchange code for user info
-        try:
-            from google.oauth2 import id_token
-            from google.auth.transport import requests
+        # Check authentication
+        authenticator.check_authentification()
 
-            # Verify the token
-            idinfo = id_token.verify_oauth2_token(
-                authorization_code,
-                requests.Request(),
-                client_id
-            )
+        # If not connected, show login screen
+        if not st.session_state.get('connected', False):
+            st.markdown('<div class="main-header">🔍 Project Veritas</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
+            st.markdown("---")
+            st.write("### 🔐 Sign In Required")
+            st.write("Please sign in with your Google account to access Project Veritas.")
 
-            # Get user email
-            user_email = idinfo.get('email', '').lower()
-
-            # Check if email is in whitelist
-            if user_email in ALLOWED_EMAILS:
-                st.session_state.authenticated = True
-                st.session_state.user_email = user_email
-                st.success(f"✅ Welcome, {user_email}!")
-                st.rerun()
-            else:
-                st.error(f"❌ Access denied. Your email ({user_email}) is not authorized.")
-                st.info("Please contact the administrator to request access.")
-                return False
-
-        except Exception as e:
-            st.error(f"❌ Authentication failed: {str(e)}")
+            # Login button
+            authorization_url = authenticator.get_authorization_url()
+            st.link_button('🔑 Sign in with Google', authorization_url)
             return False
 
-    return False
+        # User is connected - check if email is whitelisted
+        user_info = st.session_state.get('user_info', {})
+        user_email = user_info.get('email', '').lower()
+
+        if user_email not in ALLOWED_EMAILS:
+            st.error(f"❌ Access denied. Your email ({user_email}) is not authorized.")
+            st.info("Please contact the administrator to request access.")
+            if st.button('Sign out'):
+                authenticator.logout()
+            return False
+
+        # Success! User is authenticated and whitelisted
+        st.session_state.authenticated = True
+        st.session_state.user_email = user_email
+        return True
+
+    except ImportError:
+        st.error("⚠️ Google OAuth library not installed.")
+        st.info("This is a deployment configuration issue. Please contact the administrator.")
+        return False
+    except Exception as e:
+        st.error(f"❌ Authentication error: {str(e)}")
+        st.info("Please try refreshing the page or contact the administrator.")
+        return False
 
 
 def main():
@@ -182,12 +188,15 @@ def main():
     st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
 
     # Show logged in user
-    if st.session_state.user_email:
+    if st.session_state.get('user_email'):
         col1, col2 = st.columns([4, 1])
         with col2:
             if st.button("🚪 Sign Out"):
+                # Clear all auth-related session state
                 st.session_state.authenticated = False
                 st.session_state.user_email = None
+                st.session_state.connected = False
+                st.session_state.user_info = None
                 st.rerun()
 
     # Sidebar
