@@ -304,26 +304,26 @@ def scrape_reviews(url: str, use_rapidapi: bool = True) -> List[Dict]:
     Returns:
         List[Dict]: List of review dictionaries
     """
-    # Try RapidAPI first if enabled
+    # Try RapidAPI multi-key rotation first if enabled
     if use_rapidapi:
         try:
-            from src.rapidapi_scraper import scrape_reviews_rapidapi
+            from src.rapidapi_multi_scraper import scrape_reviews_multi_api
 
-            print("🚀 Attempting to fetch reviews via RapidAPI...")
-            result = scrape_reviews_rapidapi(url)
+            print("🚀 Attempting to fetch reviews via RapidAPI (multi-key rotation)...")
+            result = scrape_reviews_multi_api(url)
 
             if result["success"]:
                 print(f"✅ Successfully fetched {len(result['reviews'])} reviews via RapidAPI")
                 return result["reviews"]
-            elif result["rate_limited"]:
-                print("⚠️ RapidAPI free tier exhausted - falling back to manual input")
-                # Return empty list with special marker
+            elif result.get("all_apis_exhausted"):
+                print("⚠️ All RapidAPI keys exhausted across all services")
+                # Return empty list when all APIs exhausted
                 return []
             else:
-                print(f"⚠️ RapidAPI failed: {result['error']}")
+                print(f"⚠️ RapidAPI failed: {result.get('error', 'Unknown error')}")
                 print("📝 Falling back to direct scraping...")
-        except ImportError:
-            print("⚠️ RapidAPI module not available, using direct scraping")
+        except ImportError as e:
+            print(f"⚠️ RapidAPI module not available: {e}, using direct scraping")
         except Exception as e:
             print(f"⚠️ RapidAPI error: {e}, falling back to direct scraping")
 
