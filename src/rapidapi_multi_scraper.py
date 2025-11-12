@@ -190,6 +190,7 @@ class MultiAPIAmazonScraper:
     def _try_api_key(self, api_key: str, asin: str, max_reviews: int, api_config: Dict) -> Dict:
         """
         Try to fetch reviews using a specific API key and service.
+        Fetches multiple pages if needed to reach max_reviews.
 
         Returns:
             Dict with result of this attempt
@@ -241,31 +242,59 @@ class MultiAPIAmazonScraper:
                     "rate_limited": False
                 }
 
-            # Now fetch reviews
-            reviews_url = f"{api_config['base_url']}{api_config['reviews_endpoint']}"
-            reviews_params = {
-                "asin": asin,
-                "country": "US",
-                "page": "1"
-            }
+            # Fetch reviews with pagination
+            # Cost: 1 product call + up to 13 review pages = 14 API calls per product (worst case)
+            # With 500 requests/month across 5 keys = ~35 product analyses per month
+            all_reviews = []
+            page = 1
+            max_pages = 13  # ~8 reviews per page * 13 pages = ~100 reviews
 
-            reviews_response = requests.get(
-                reviews_url,
-                headers=headers,
-                params=reviews_params,
-                timeout=30
-            )
-
-            # Check for rate limiting
-            if reviews_response.status_code == 429:
-                return {
-                    "success": False,
-                    "error": "Rate limit exceeded",
-                    "reviews": [],
-                    "rate_limited": True
+            while len(all_reviews) < max_reviews and page <= max_pages:
+                reviews_url = f"{api_config['base_url']}{api_config['reviews_endpoint']}"
+                reviews_params = {
+                    "asin": asin,
+                    "country": "US",
+                    "page": str(page)
                 }
 
-            if reviews_response.status_code != 200:
+                print(f"      Fetching page {page}...")
+                reviews_response = requests.get(
+                    reviews_url,
+                    headers=headers,
+                    params=reviews_params,
+                    timeout=30
+                )
+
+                # Check for rate limiting
+                if reviews_response.status_code == 429:
+                    print(f"      Rate limited at page {page}")
+                    if all_reviews:
+                        # Return what we have so far
+                        break
+                    return {
+                        "success": False,
+                        "error": "Rate limit exceeded",
+                        "reviews": [],
+                        "rate_limited": True
+                    }
+
+                if reviews_response.status_code != 200:
+                    print(f"      Page {page} returned status {reviews_response.status_code}")
+                    break
+
+                # Parse reviews from this page
+                reviews_data = reviews_response.json()
+                page_reviews = self._parse_reviews_response(reviews_data)
+
+                if not page_reviews:
+                    print(f"      No more reviews found at page {page}")
+                    break
+
+                all_reviews.extend(page_reviews)
+                print(f"      Got {len(page_reviews)} reviews (total: {len(all_reviews)})")
+                page += 1
+
+            if not all_reviews:
                 # Try to parse product details for embedded reviews as fallback
                 product_data = product_response.json()
                 reviews = self._extract_reviews_from_product_data(product_data)
@@ -280,23 +309,6 @@ class MultiAPIAmazonScraper:
 
                 return {
                     "success": False,
-                    "error": f"Reviews API returned status code {reviews_response.status_code}",
-                    "reviews": [],
-                    "rate_limited": False
-                }
-
-            # Parse reviews response
-            reviews_data = reviews_response.json()
-            print(f"   Debug: API response status: {reviews_response.status_code}")
-            print(f"   Debug: Response keys: {list(reviews_data.keys()) if isinstance(reviews_data, dict) else 'not a dict'}")
-
-            reviews = self._parse_reviews_response(reviews_data)
-
-            if not reviews:
-                print(f"   Debug: No reviews parsed from response")
-                print(f"   Debug: Response sample: {str(reviews_data)[:500]}")
-                return {
-                    "success": False,
                     "error": "No reviews found in API response",
                     "reviews": [],
                     "rate_limited": False
@@ -304,7 +316,7 @@ class MultiAPIAmazonScraper:
 
             return {
                 "success": True,
-                "reviews": reviews[:max_reviews],
+                "reviews": all_reviews[:max_reviews],
                 "error": None,
                 "rate_limited": False
             }
