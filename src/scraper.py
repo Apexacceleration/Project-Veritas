@@ -35,13 +35,20 @@ class AmazonReviewScraper:
             Dict[str, str]: HTTP headers
         """
         return {
-            "User-Agent": utils.get_random_user_agent(),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
             "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
+            "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"'
         }
 
     def _extract_product_id(self, url: str) -> Optional[str]:
@@ -242,11 +249,21 @@ class AmazonReviewScraper:
                 # Parse HTML
                 soup = BeautifulSoup(response.content, "lxml")
 
+                # Debug: Check if we're being blocked
+                if "To discuss automated access to Amazon data please contact" in response.text:
+                    print("🚫 Amazon bot detection triggered. Try again later or use proxies.")
+                    break
+
                 # Find all review elements
                 review_elements = soup.find_all("div", {"data-hook": "review"})
 
+                # Debug: If no reviews found, check page content
                 if not review_elements:
-                    print(f"ℹ️  No more reviews found on page {page}. Stopping.")
+                    print(f"ℹ️  No reviews found on page {page}.")
+                    # Check if page has any review-related content
+                    if page == 1:
+                        print(f"   Debug: Page title: {soup.title.string if soup.title else 'No title'}")
+                        print(f"   Debug: Response length: {len(response.text)} characters")
                     break
 
                 # Parse each review
