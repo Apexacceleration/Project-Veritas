@@ -85,6 +85,7 @@ class MultiAPIAmazonScraper:
             print("   ⚠️ WARNING: No API keys found!")
 
         # Multiple API service configurations (rotate through these too)
+        # Currently only using OpenWeb Ninja since all accounts are subscribed to it
         self.api_services = [
             {
                 "name": "Real-Time Amazon Data (OpenWeb Ninja)",
@@ -92,21 +93,22 @@ class MultiAPIAmazonScraper:
                 "host": "real-time-amazon-data.p.rapidapi.com",
                 "product_endpoint": "/product-details",
                 "reviews_endpoint": "/product-reviews"
-            },
-            {
-                "name": "Realtime Amazon Data (API World)",
-                "base_url": "https://realtime-amazon-data.p.rapidapi.com",
-                "host": "realtime-amazon-data.p.rapidapi.com",
-                "product_endpoint": "/product-details",
-                "reviews_endpoint": "/product-reviews"
-            },
-            {
-                "name": "Scout Amazon Data",
-                "base_url": "https://scout-amazon-data.p.rapidapi.com",
-                "host": "scout-amazon-data.p.rapidapi.com",
-                "product_endpoint": "/product-details",
-                "reviews_endpoint": "/product-reviews"
             }
+            # Uncomment these if you subscribe to other APIs:
+            # {
+            #     "name": "Realtime Amazon Data (API World)",
+            #     "base_url": "https://realtime-amazon-data.p.rapidapi.com",
+            #     "host": "realtime-amazon-data.p.rapidapi.com",
+            #     "product_endpoint": "/product-details",
+            #     "reviews_endpoint": "/product-reviews"
+            # },
+            # {
+            #     "name": "Scout Amazon Data",
+            #     "base_url": "https://scout-amazon-data.p.rapidapi.com",
+            #     "host": "scout-amazon-data.p.rapidapi.com",
+            #     "product_endpoint": "/product-details",
+            #     "reviews_endpoint": "/product-reviews"
+            # }
         ]
 
     def _extract_asin(self, url: str) -> Optional[str]:
@@ -285,9 +287,14 @@ class MultiAPIAmazonScraper:
 
             # Parse reviews response
             reviews_data = reviews_response.json()
+            print(f"   Debug: API response status: {reviews_response.status_code}")
+            print(f"   Debug: Response keys: {list(reviews_data.keys()) if isinstance(reviews_data, dict) else 'not a dict'}")
+
             reviews = self._parse_reviews_response(reviews_data)
 
             if not reviews:
+                print(f"   Debug: No reviews parsed from response")
+                print(f"   Debug: Response sample: {str(reviews_data)[:500]}")
                 return {
                     "success": False,
                     "error": "No reviews found in API response",
