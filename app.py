@@ -113,13 +113,25 @@ def check_authentication():
         import tempfile
 
         # Create credentials dict from environment variables
+        # This must match the exact format from Google Cloud Console's OAuth client JSON
         credentials = {
             "web": {
                 "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uris": ["https://projectveritas.app", "https://project-veritas.streamlit.app"],
+                "project_id": "project-veritas",
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://accounts.google.com/o/oauth2/token"
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uris": [
+                    "https://project-veritas.streamlit.app",
+                    "https://projectveritas.app",
+                    "http://localhost:8501"
+                ],
+                "javascript_origins": [
+                    "https://project-veritas.streamlit.app",
+                    "https://projectveritas.app",
+                    "http://localhost:8501"
+                ]
             }
         }
 
@@ -129,11 +141,19 @@ def check_authentication():
             creds_file = f.name
 
         # Initialize authenticator
+        # Get redirect URI from secrets or use default
+        redirect_uri = "https://project-veritas.streamlit.app"
+        try:
+            if "redirect_uri" in st.secrets:
+                redirect_uri = st.secrets["redirect_uri"]
+        except:
+            pass
+
         authenticator = Authenticate(
             secret_credentials_path=creds_file,
             cookie_name='veritas_auth',
-            cookie_key=os.getenv('COOKIE_SECRET', 'veritas-secret-key-change-in-production'),
-            redirect_uri=st.secrets.get("redirect_uri", "https://project-veritas.streamlit.app")
+            cookie_key='veritas-cookie-secret-key-12345',  # Fixed secret for consistency
+            redirect_uri=redirect_uri
         )
 
         # Check authentication
