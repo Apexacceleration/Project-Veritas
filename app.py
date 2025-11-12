@@ -112,6 +112,12 @@ def check_authentication():
         return True
 
     # Check if user is logged in using Streamlit's native authentication
+    # Check if st.user exists (Streamlit 1.42+)
+    if not hasattr(st, 'user'):
+        st.error("⚠️ Streamlit version is too old for native authentication.")
+        st.info("The app requires Streamlit 1.42 or higher. Redeploying...")
+        return True
+
     if not st.user.is_logged_in:
         # Show login screen
         st.markdown('<div class="main-header">🔍 Project Veritas</div>', unsafe_allow_html=True)
@@ -155,7 +161,7 @@ def main():
     st.markdown('<div class="sub-header">Finding truth in online reviews</div>', unsafe_allow_html=True)
 
     # Show logged in user
-    if st.user.is_logged_in and st.session_state.get('user_email'):
+    if hasattr(st, 'user') and st.user.is_logged_in and st.session_state.get('user_email'):
         col1, col2 = st.columns([4, 1])
         with col1:
             st.caption(f"Signed in as: {st.session_state.user_email}")
