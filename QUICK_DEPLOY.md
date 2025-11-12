@@ -47,9 +47,13 @@ The 404 error you got was because:
    - Name: `Project Veritas Web`
    - Add JavaScript origins:
      - `https://project-veritas.streamlit.app`
+     - `https://projectveritas.app`
+     - `https://www.projectveritas.app`
      - `http://localhost:8501`
    - Add Redirect URIs:
      - `https://project-veritas.streamlit.app`
+     - `https://projectveritas.app`
+     - `https://www.projectveritas.app`
      - `http://localhost:8501`
    - Click "Create"
 
@@ -125,12 +129,14 @@ The 404 error you got was because:
 
 3. **Wait 5-60 minutes** for DNS propagation
 
-4. **Update Google OAuth:**
-   - Go back to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-   - Edit your OAuth client
-   - Add to JavaScript origins: `https://projectveritas.app`
-   - Add to Redirect URIs: `https://projectveritas.app`
-   - Click "Save"
+4. **Update Google OAuth (if you didn't add custom domain in step 5):**
+   - If you already added `https://projectveritas.app` in Part 1, step 5, skip this!
+   - Otherwise:
+     - Go back to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+     - Edit your OAuth client
+     - Add to JavaScript origins: `https://projectveritas.app` and `https://www.projectveritas.app`
+     - Add to Redirect URIs: `https://projectveritas.app` and `https://www.projectveritas.app`
+     - Click "Save"
 
 5. **Test:**
    - Visit: `https://projectveritas.app`
